@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Application Carburant – Tout en une page</title>
+
+<style>
+body{
+    font-family:"Segoe UI", Arial, sans-serif;
+    background:linear-gradient(135deg,#1e3a8a,#2563eb);
+    padding:40px;
+}
+.container{
+    max-width:900px;
+    margin:auto;
+    background:#fff;
+    padding:25px;
+    border-radius:15px;
+    box-shadow:0 10px 25px rgba(0,0,0,0.2);
+}
+h2,h3{
+    text-align:center;
+    color:#1e3a8a;
+}
+.section{
+    margin-top:25px;
+    padding:15px;
+    border-radius:10px;
+    background:#f8fafc;
+}
+label{
+    display:block;
+    margin-top:10px;
+    font-weight:bold;
+}
+input,select{
+    width:100%;
+    padding:10px;
+    margin-top:5px;
+    border-radius:8px;
+    border:1px solid #cbd5e1;
+}
+.btn-group{
+    display:flex;
+    gap:10px;
+    margin-top:15px;
+    flex-wrap:wrap;
+}
+button{
+    padding:12px;
+    border:none;
+    border-radius:10px;
+    font-weight:bold;
+    cursor:pointer;
+    color:white;
+}
+.btn-save{background:#0ea5e9;}
+.btn-calc{background:#2563eb;}
+.btn-print{background:#16a34a;}
+.btn-reset{background:#dc2626;}
+.stock-box{
+    background:#ecfeff;
+    padding:10px;
+    border-radius:8px;
+    margin-top:10px;
+    font-weight:bold;
+}
+.result{
+    margin-top:15px;
+    background:#f0f9ff;
+    padding:15px;
+    border-radius:10px;
+    border-left:5px solid #2563eb;
+}
+.danger{
+    background:#fee2e2;
+    border-left:5px solid #dc2626;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+<h2>⛽ Application de Gestion de Carburant</h2>
+
+<!-- GESTION STOCK -->
+<div class="section">
+<h3>📦 Gestion du Stock</h3>
+
+<label>Type de carburant</label>
+<select id="carburant">
+    <option>Essence</option>
+    <option>Gasoil</option>
+    <option>Pétrole</option>
+</select>
+
+<label>Stock initial (L)</label>
+<input type="number" id="stockInitial">
+
+<label>Prix par litre (FC)</label>
+<input type="number" id="prix">
+
+<div class="btn-group">
+    <button class="btn-save" onclick="enregistrerCarburant()">💾 Enregistrer</button>
+    <button class="btn-save" onclick="changerPrix()">💰 Changer prix</button>
+    <button class="btn-reset" onclick="reinitialiserStock()">♻ Réinitialiser</button>
+</div>
+
+<div class="stock-box" id="stockInitialBox">Stock initial : -- L</div>
+<div class="stock-box" id="stockRestantBox">Stock restant : -- L</div>
+</div>
+
+<!-- VENTE -->
+<div class="section">
+<h3>🧾 Vente de Carburant</h3>
+
+<label>Nom du client</label>
+<input type="text" id="nomClient">
+
+<label>Litres vendus</label>
+<input type="number" id="litresVendus">
+
+<div class="btn-group">
+    <button class="btn-calc" onclick="calculerVente()">Calculer</button>
+    <button class="btn-print" onclick="imprimerFacture()" id="btnPrint" disabled>Imprimer</button>
+</div>
+
+<div id="resultat" class="result"></div>
+</div>
+
+<!-- CLIENTS -->
+<div class="section">
+<h3>👤 Clients payants</h3>
+<button class="btn-save" onclick="afficherClients()">Afficher clients</button>
+<div id="listeClients" style="margin-top:10px;"></div>
+</div>
+
+<!-- HISTORIQUE -->
+<div class="section">
+<h3>📊 Historique des ventes</h3>
+<button class="btn-save" onclick="afficherHistorique()">Afficher historique</button>
+<div id="historiqueVentes" style="margin-top:10px;"></div>
+</div>
+
+</div>
+
+<script>
+let stock = null;
+const resultat = document.getElementById("resultat");
+const btnPrint = document.getElementById("btnPrint");
+
+function enregistrerCarburant(){
+    const type = carburant.value;
+    const prixL = Number(prix.value);
+    const stockInit = Number(stockInitial.value);
+
+    if(!type || !prixL || !stockInit){
+        afficherErreur("Veuillez remplir tous les champs.");
+        return;
+    }
+
+    stock = stockInit;
+    localStorage.setItem("carburant", JSON.stringify({type, prixL, stockInit}));
+    localStorage.setItem("stock", stock);
+    afficherStock();
+    resultat.innerHTML="✅ Carburant enregistré avec succès.";
+}
+
+function afficherStock(){
+    const data = JSON.parse(localStorage.getItem("carburant"));
+    if(!data) return;
+    stock = Number(localStorage.getItem("stock"));
+    stockInitialBox.innerHTML="Stock initial : "+data.stockInit+" L";
+    stockRestantBox.innerHTML="Stock restant : "+stock+" L";
+}
+
+function changerPrix(){
+    const nouveau = prompt("Nouveau prix par litre ?");
+    if(!nouveau) return;
+    const data = JSON.parse(localStorage.getItem("carburant"));
+    data.prixL = Number(nouveau);
+    localStorage.setItem("carburant", JSON.stringify(data));
+    prix.value = nouveau;
+    alert("Prix mis à jour !");
+}
+
+function calculerVente(){
+    const nom = nomClient.value;
+    const litres = Number(litresVendus.value);
+    const data = JSON.parse(localStorage.getItem("carburant"));
+
+    if(!nom || !litres) return afficherErreur("Champs obligatoires.");
+    if(litres > stock) return afficherErreur("Stock insuffisant.");
+
+    const total = litres * data.prixL;
+
+    // 📅 Date et heure
+    const now = new Date();
+    const dateFacture = now.toLocaleDateString("fr-FR");
+    const heureFacture = now.toLocaleTimeString("fr-FR");
+
+    stock -= litres;
+    localStorage.setItem("stock", stock);
+    afficherStock();
+
+    resultat.className="result";
+    resultat.innerHTML=`
+        <h3 style="text-align:center">🧾 FACTURE</h3>
+        <b>Date :</b> ${dateFacture}<br>
+        <b>Heure :</b> ${heureFacture}<hr>
+        <b>Client :</b> ${nom}<br>
+        <b>Carburant :</b> ${data.type}<br>
+        <b>Litres :</b> ${litres} L<br>
+        <b>Prix/L :</b> ${data.prixL.toLocaleString()} FC<br>
+        <b>Total :</b> ${total.toLocaleString()} FC<hr>
+        <b>Merci pour votre confiance 🙏</b>
+    `;
+
+    btnPrint.disabled=false;
+
+    let ventes = JSON.parse(localStorage.getItem("ventes")) || [];
+    ventes.push({nom, litres, total, date:dateFacture, heure:heureFacture, stock});
+    localStorage.setItem("ventes", JSON.stringify(ventes));
+}
+
+function afficherClients(){
+    let ventes = JSON.parse(localStorage.getItem("ventes")) || [];
+    listeClients.innerHTML = ventes.map(v =>
+        `👤 ${v.nom} – ${v.litres} L – ${v.total.toLocaleString()} FC`
+    ).join("<br>") || "Aucun client.";
+}
+
+function afficherHistorique(){
+    let ventes = JSON.parse(localStorage.getItem("ventes")) || [];
+    historiqueVentes.innerHTML = ventes.map(v =>
+        `📅 ${v.date} ${v.heure} | ${v.nom} | ${v.litres} L | ${v.total.toLocaleString()} FC | Stock: ${v.stock} L`
+    ).join("<br>") || "Aucune vente.";
+}
+
+function reinitialiserStock(){
+    if(confirm("Tout supprimer ?")){
+        localStorage.clear();
+        location.reload();
+    }
+}
+
+function afficherErreur(msg){
+    resultat.className="result danger";
+    resultat.innerHTML="❌ "+msg;
+}
+
+function imprimerFacture(){
+    window.print();
+}
+
+if(localStorage.getItem("carburant")) afficherStock();
+</script>
+
+</body>
+</html>
